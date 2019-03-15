@@ -1,9 +1,11 @@
 import sys
+import six
 import argparse
 
 
 from fastidious.parser import ParserMeta, Parser
 from fastidious.compilers import gendot
+from fastidious.modrewrite import rewrite
 
 
 FASTIDIOUS_MAGIC = ["__grammar__", "__default__"]
@@ -13,7 +15,7 @@ def load_class(klass):
     module, classname = klass.rsplit(".", 1)
     mod = __import__(module, fromlist=classname)
     template = getattr(mod, classname)
-    return template
+    return mod, template, classname
 
 
 def parser_from_template(tmpl):
@@ -29,27 +31,30 @@ def parser_from_template(tmpl):
 
 
 def load_parser(klass):
-    return parser_from_template(load_class(klass))
+    return parser_from_template(load_class(klass)[1])
 
 
-def generate(klass, executable):
-    template = load_class(klass)
+def generate(klass, executable, output):
+    module, template, classname = load_class(klass)
     if not hasattr(template.p_compiler, "gen_py_code"):
         raise NotImplementedError(
             "%s's compiler doesn't expose gen_py_code capability" % template)
 
     if executable:
-        sys.stdout.write("#! /usr/bin/python\n")
+        output.write("#! /usr/bin/python\n")
 
-    template.p_compiler.gen_py_code(template, sys.stdout)
+    out = six.StringIO()
+    template.p_compiler.gen_py_code(template, out)
+
+    rewrite(module, classname, out.getvalue(), output)
 
     if executable:
-        sys.stdout.write("""
+        output.write("""
 if __name__ == '__main__':
     import sys
-    res = %s.p_parse(" ".join(sys.argv[1:]))
+    res = {name}.p_parse(" ".join(sys.argv[1:]))
     print(res)
-""" % klass.rsplit(".", 1)[-1])
+""".format(name=classname))
 
 
 def graph(klass):
@@ -61,7 +66,7 @@ def graph(klass):
 # pragma: nocover
 if __name__ == "__main__":
     def _generate(args):
-        generate(args.classname, args.executable)
+        generate(args.classname, args.executable, args.output)
 
     def _graph(args):
         print(graph(args.classname))
@@ -81,6 +86,11 @@ if __name__ == "__main__":
                                  default=False,
                                  action="store_true",
                                  help="Name of the parser class to generate")
+    parser_generate.add_argument("--output", "-o",
+                                 metavar="OUT",
+                                 type=argparse.FileType("w"),
+                                 default=sys.stdout,
+                                 help="Write generated code to OUT (default stdout)")
     parser_generate.add_argument("classname",
                                  help="Name of the parser class to generate")
     parser_generate.set_defaults(func=_generate)
