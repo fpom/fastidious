@@ -76,6 +76,11 @@ if __name__ == "__main__":
         prog="fastidious",
         description="Fastidious utils"
     )
+
+    def _usage(args):
+        parser.print_usage()
+
+    parser.set_defaults(func=_usage)
     subparsers = parser.add_subparsers(title="subcommands")
 
     # generate subparser
