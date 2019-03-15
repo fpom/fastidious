@@ -2,7 +2,7 @@ import inspect
 import fastidious
 
 
-def rewrite(module, classname, classcode, output) :
+def rewrite(module, classname, classcode, output):
     cut = []
     add = None
     for name, obj in inspect.getmembers(module, inspect.isclass) :
