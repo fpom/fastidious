@@ -564,7 +564,7 @@ class _Expr:
         out.write("class %s(object):\n" % parser.__name__)
         out.write("    __default__ = '%s'\n" % parser.__default__)
         out.write("    class ParserError(Exception):\n        pass\n\n")
-        out.write(body)
+        out.write(re.sub(r"def\s+__init__", "def __INIT__", body, count=1))
 
         # print _p_py_constants
         out.write("    _p_py_constants = %s\n" % _repr(parser._p_py_constants))

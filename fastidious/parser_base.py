@@ -57,6 +57,8 @@ class ParserMixin(object):
         self._p_memoized = {}
 
         self._p_error_stack = [(0, 0)]
+        if hasattr(self, "__INIT__"):
+            self.__INIT__()
 
     def p_nomatch(self, id):
         head = self._p_error_stack[0]
