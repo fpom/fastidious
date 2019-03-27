@@ -50,6 +50,7 @@ class ParserMixin(object):
     def __init__(self, input):
         self.input = input
         self.pos = 0
+        self.last_pos = 0
         self.start = 0
         self.args_stack = {}
         self._debug_indent = 0
@@ -110,36 +111,56 @@ class ParserMixin(object):
 
     def p_discard(self):
         "Pop and forget a savepoint (internal use)"
-        self._p_savepoint_stack.pop()
+        self.last_pos = self._p_savepoint_stack.pop()[0]
+
+    def _p_get_line(self, pos):
+        return self.input[:pos].count('\n') + 1
 
     @property
     def p_current_line(self):
         "Return current line number"
-        return self.input[:self.pos].count('\n')
+        return self._p_get_line(self.pos)
+
+    @property
+    def p_last_line(self):
+        "Return last line number"
+        return self._p_get_line(self.last_pos)
+
+    def _p_get_col(self, pos):
+        prefix = self.input[:pos]
+        nlidx = prefix.rfind('\n')
+        if nlidx == -1:
+            return pos
+        return pos - nlidx
 
     @property
     def p_current_col(self):
-        "Return currnet column in line"
-        prefix = self.input[:self.pos]
-        nlidx = prefix.rfind('\n')
-        if nlidx == -1:
-            return self.pos
-        return self.pos - nlidx
+        "Return current column in line"
+        return self._p_get_col(self.pos)
 
-    def p_pretty_pos(self):
+    @property
+    def p_last_col(self):
+        "Return last column in line"
+        return self._p_get_col(self.last_pos)
+
+    def p_pretty_pos(self, pos=None):
         "Print current line and a pretty cursor below. Used in error messages"
-        col = self.p_current_col
-        suffix = self.input[self.pos - col:]
+        if pos is None :
+            pos = self.pos
+        col = self._p_get_col(pos) - 1
+        suffix = self.input[pos - col:]
         end = suffix.find("\n")
         if end != -1:
             suffix = suffix[:end]
         return "%s\n%s" % (suffix, "-" * col + "^")
 
-    def p_parse_error(self, message):
+    def p_parse_error(self, message, pos=None):
+        if pos is None :
+            pos = self.pos
         raise ParserError(
             "Error at line %s, col %s: %s" % (
-                self.p_current_line,
-                self.p_current_col,
+                self._p_get_line(pos),
+                self._p_get_col(pos) - 1,
                 message
             )
         )
@@ -158,7 +179,7 @@ class ParserMixin(object):
             "Got `%s` expected %s "
             "" % (
                 self.p_current_line,
-                self.p_current_col,
+                self.p_current_col - 1,
                 self.p_pretty_pos(),
                 self.p_suffix(10, elipsis=True).replace(
                     '\n', "\\n") or "EOF",
@@ -252,7 +273,7 @@ class ParserMixin(object):
                         continue
                     expected += expr.expected
         self.pos = current_pos
-        return self.p_syntax_error(*expected)
+        self.p_syntax_error(*expected)
 
 
 class _FastidiousParserMixin(object):
