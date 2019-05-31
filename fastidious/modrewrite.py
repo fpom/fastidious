@@ -18,10 +18,11 @@ class GrepImports (ast.NodeVisitor):
                 self.names.add(n)
                 break
     def visit_ImportFrom (self, node) :
-        n = node.module.split(".", 1)[0]
-        if n == self.mod :
-            self.names.update(a.asname or a.name for a in node.names)
-            self.imports.append(node.lineno - 1)
+        if node.module :
+            n = node.module.split(".", 1)[0]
+            if n == self.mod :
+                self.names.update(a.asname or a.name for a in node.names)
+                self.imports.append(node.lineno - 1)
     def visit_Name (self, node):
         if node.id in self.names :
             self.used = True
